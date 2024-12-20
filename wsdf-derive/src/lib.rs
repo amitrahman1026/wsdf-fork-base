@@ -154,7 +154,8 @@ pub fn version(input: TokenStream) -> TokenStream {
     version_info.into()
 }
 
-/// Derive macro for the `Dissect` trait.
+/// Derive macro for the `Dissect` trait. Sets up mapping user's Rust code to internal
+/// StructInnards data model and serialises to (and registers) a Wireshark dissector
 #[proc_macro_error]
 #[proc_macro_derive(Dissect, attributes(wsdf))]
 pub fn derive_dissect(input: TokenStream) -> TokenStream {
