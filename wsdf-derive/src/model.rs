@@ -1,7 +1,8 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
+use proc_macro_error2::{abort, emit_call_site_error, emit_error};
 use quote::format_ident;
-use syn::{parse_quote, punctuated::Punctuated};
+use syn::{parse_quote, punctuated::Punctuated, Ident};
 
 use crate::{attributes::*, util::*};
 
@@ -37,6 +38,7 @@ pub(crate) struct FieldMeta {
 }
 
 impl StructInnards {
+    /// Parses the rust syntax and maps it to the wsdf interal StructInnards data model
     pub(crate) fn from_fields(fields: &syn::Fields) -> syn::Result<Self> {
         match fields {
             syn::Fields::Named(fields) => Self::from_fields_named(fields),
@@ -430,6 +432,66 @@ impl FieldOptions {
     fn ws_type_as_expr(&self) -> syn::Expr {
         match &self.ws_type {
             Some(ty) => {
+                let valid_types = [
+                    "FT_NONE",
+                    "FT_BOOLEAN",
+                    "FT_CHAR",
+                    "FT_UINT8",
+                    "FT_UINT16",
+                    "FT_UINT24",
+                    "FT_UINT32",
+                    "FT_UINT40",
+                    "FT_UINT48",
+                    "FT_UINT56",
+                    "FT_UINT64",
+                    "FT_INT8",
+                    "FT_INT16",
+                    "FT_INT24",
+                    "FT_INT32",
+                    "FT_INT40",
+                    "FT_INT48",
+                    "FT_INT56",
+                    "FT_INT64",
+                    "FT_IEEE_11073_SFLOAT",
+                    "FT_IEEE_11073_FLOAT",
+                    "FT_FLOAT",
+                    "FT_DOUBLE",
+                    "FT_ABSOLUTE_TIME",
+                    "FT_RELATIVE_TIME",
+                    "FT_STRING",
+                    "FT_STRINGZ",
+                    "FT_STRINGZPAD",
+                    "FT_STRINGZTRUNC",
+                    "FT_UINT_STRING",
+                    "FT_ETHER",
+                    "FT_BYTES",
+                    "FT_UINT_BYTES",
+                    "FT_IPv4",
+                    "FT_IPv6",
+                    "FT_IPXNET",
+                    "FT_FRAMENUM",
+                    "FT_PROTOCOL",
+                    "FT_EUI64",
+                    "FT_GUID",
+                    "FT_OID",
+                    "FT_REL_OID",
+                    "FT_AX25",
+                    "FT_VINES",
+                    "FT_SYSTEM_ID",
+                    "FT_FCWWN",
+                ];
+
+                if !valid_types.contains(&ty.as_str()) {
+                    emit_call_site_error!(
+                        "invalid Wireshark field type '{}'", ty;
+
+                        help = "valid field types include: FT_UINT8, FT_UINT16, FT_UINT24, FT_UINT32, etc.";
+
+                        note = "see https://gitlab.com/wireshark/wireshark/-/blob/release-4.4/doc/README.dissector?ref_type=heads#L119  \
+                               for a complete list of field types. If a type is not supported, please file a bug report."
+                    );
+                }
+
                 let ws_type = format_ws_type(ty);
                 parse_quote! { std::option::Option::Some(#ws_type) }
             }
