@@ -769,22 +769,49 @@ fn assign_subdissector_key_types(fields: &[NamedField]) -> Vec<NamedField> {
                     subdissector_key_type: None,
                     ..field.meta.clone()
                 },
-                Some(Subdissector::Table { fields: keys, .. }) => {
-                    // The idea here is to scan through the provided list of fields until the first
+                Some(Subdissector::Table {table_name, fields: keys, .. }) => {
+                    // The idea here is to lookup the fields until the first
                     // one which matches one of the keys.
                     //
                     // @todo: ensure that all the keys can be found, and that their types match.
                     // This should be relatively easy once we remove the old code and use a better
                     // abstraction for Subdissector.
-                    let mut new_meta = field.meta.clone();
-                    for field in fields {
-                        for key in keys {
-                            if &field.ident == key {
-                                new_meta.subdissector_key_type = Some(field.meta.ty.clone());
-                            }
-                        }
+                    let field_map: HashMap<&syn::Ident, &FieldMeta> = fields.iter()
+                    .map(|f| (&f.ident, &f.meta))
+                    .collect();
+
+                    let mut new_meta: FieldMeta = field.meta.clone();
+                    let missing_keys: Vec<&Ident> = keys
+                        .iter()
+                        .filter_map(|key| {
+                            field_map.get(key).map(|meta| {
+                                new_meta.subdissector_key_type = Some(meta.ty.clone());
+                                None
+                            }).unwrap_or(Some(key)) // invert to retain missing key
+                        })
+                        .collect();
+
+                    if !missing_keys.is_empty() {
+                        let missing = missing_keys.iter()
+                            .map(|id| id.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ");
+
+                        emit_error!(
+                            field.ident.span(),
+                            "subdissector table '{}' references nonexistent fields: {}",
+                            table_name,
+                            missing;
+
+                            help = "for the current field you are to subdissect, subdissector fields must:
+            1. Be defined before the payload field that uses them
+            2. Have types that implement the SubdissectorKey trait (like u8, u16, etc. or custom types)
+            3. Match the exact field names as defined above";
+
+                            note = "see `wsdf` documentation on subdissector tables at https://docs.rs/wsdf/latest/wsdf/#calling-subdissectors
+          more documentation about calling subdissectors at https://gitlab.com/wireshark/wireshark/blob/ab9ee49b11e733faa9408b1baa2a0ed2ad3d3fdf/doc/README.dissector#L2339";
+                        );
                     }
-                    debug_assert!(new_meta.subdissector_key_type.is_some());
                     new_meta
                 }
             };

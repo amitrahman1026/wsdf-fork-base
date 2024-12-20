@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use once_cell::sync::Lazy;
+use proc_macro_error2::emit_error;
 use quote::{format_ident, quote};
 use regex::{Captures, Regex};
 use syn::{parse_quote, spanned::Spanned};
@@ -23,7 +24,10 @@ macro_rules! get_lit {
                 lit: syn::Lit::$lit_ty(ref x),
                 ..
             }) => Ok(x),
-            _ => Err(syn::Error::new($($expr).+.span(), $err)),
+            _ =>{
+                emit_error!($($expr).+.span(), $err);
+                Err(syn::Error::new($($expr).+.span(), $err))
+            }
         }
     };
 }
