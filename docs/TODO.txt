@@ -48,38 +48,6 @@ Handle all panics
     An alternative is to use Wireshark's "Expert Item" fields, and just
     highlight the error in Wireshark's UI instead of panicking.
 
-More flexible decoding for enums
-
-    Currently, enums must be "dispatched" based on the value of a previous
-    field. However, a user may wish to do this:
-
-    struct Order {
-        side: Side, // technically a u8
-        price: i32,
-        quantity: u64,
-    }
-
-    #[repr(u8)]
-    enum Side {
-        Bid,
-        Ask,
-        Unknown,
-    }
-
-    Suppose we implement From<u8> for Size. Maybe we can come up with some way
-    to support the above kind of syntax?
-
-Support multiple derive(Protocol) in one lib
-
-    This should technically be possible. Since a lib is a plugin, and a plugin
-    should be allowed to have multiple dissectors.
-
-    The `plugin_register` symbol (currently generated once per
-    derive(Protocol)) is the "entry point" for Wireshark to register our
-    plugin. To support multiple protocols in one lib, we would need to generate
-    exactly one `plugin_register` per lib, and register all the protocols
-    within that function.
-
 Support Wireshark flag types
 
     This is pretty important, but we'll need to investigate a good syntax for
@@ -147,31 +115,6 @@ Collect more errors before giving up
     An alternative is to use some kind of context struct, passed around to all
     our functions, which holds a list of all errors encountered. That way, we
     can report as many errors as possible in one go.
-
-Support adding stuff in columns
-
-    Wireshark has an "info" column (COL_INFO) where you can write arbitrary
-    stuff. Currently, we do not have a way to set what goes on there.
-
-    One way is to expose some methods on ProtocolField which users can call to
-    add stuff to the info column. These methods can be called inside taps,
-    decode_withs, or whatever.
-
-    #[derive(ProtocolField)]
-    struct MyProto {
-        #[wsdf(tap = "tap_fn")]
-        src_port: u16,
-    }
-
-    fn tap_fn(Field(x): Field) {
-        // perhaps something like this
-        MyProto::add_to_col(&format!("Source Port={x});
-    }
-
-    See
-    https://www.wireshark.org/docs/wsdg_html_chunked/ChDissectAdd.html#_improving_the_dissection_information
-    for how the COL_INFO can be used from C.
-
 
 Check attributes validity
 
