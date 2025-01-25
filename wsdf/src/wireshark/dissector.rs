@@ -116,7 +116,17 @@ impl PacketInfo {
     pub fn new(ptr: *mut epan_sys::_packet_info) -> Self {
         Self { ptr }
     }
-    // This raw pointer is managed by the block allocator of wmem
+    /// Allocates a null-terminated string in the packet's memory pool.
+    ///
+    /// # Safety
+    /// - The returned pointer is owned by Wireshark's memory management system
+    /// - The pointer is only valid for the lifetime of the current packet dissection
+    /// - The string will be automatically freed when the packet pool is destroyed
+    /// - The pointer should not be manually freed
+    ///
+    /// This function is primarily used internally by Tree methods that need to pass
+    /// strings to Wireshark's C API. Users should prefer the safe wrapper methods
+    /// like `set_column_text()`.
     pub unsafe fn alloc_raw_string(&self, s: &str) -> *const i8 {
         let c_str = std::ffi::CString::new(s).unwrap();
         unsafe {
@@ -126,6 +136,17 @@ impl PacketInfo {
             ptr
         }
     }
+    /// Allocates a byte array in the packet's memory pool.
+    ///
+    /// # Safety
+    /// - The returned pointer is owned by Wireshark's memory management system
+    /// - The pointer is only valid for the lifetime of the current packet dissection
+    /// - The memory will be automatically freed when the packet pool is destroyed
+    /// - The pointer should not be manually freed
+    ///
+    /// This function is primarily used for allocating transformed data buffers
+    /// (e.g., decompressed data) that need to live for the duration of packet
+    /// dissection.
     pub unsafe fn alloc_bytes(&self, bytes: &[u8]) -> *mut u8 {
         unsafe {
             let ptr = epan_sys::wmem_alloc((*self.ptr).pool, bytes.len()) as *mut u8;
@@ -145,6 +166,16 @@ impl PacketInfo {
             epan_sys::col_clear((*self.ptr).cinfo, col as i32);
         }
     }
+    /// Adds a new data source to the packet using the provided TVB.
+    ///
+    /// # Safety
+    /// - The TVB must be valid and created through proper Wireshark APIs
+    /// - The name string must be allocated in a way that ensures it lives
+    ///   for the duration of packet dissection (typically using alloc_raw_string within wsdf)
+    ///
+    /// This is typically used after creating a new TVB for transformed data
+    /// to make the data visible in Wireshark's UI.
+
     pub unsafe fn add_data_source(&self, tvb: &Tvb, name: &str) {
         let name = self.alloc_raw_string(name);
         epan_sys::add_new_data_source(self.ptr, tvb.ptr, name);
@@ -288,7 +319,17 @@ impl<'a> Tree<'a> {
         }
         Some(())
     }
-    // New Tree with a different TVB buffer but within same protocol context
+    /// Creates a new Tree instance with a different TVB buffer while maintaining
+    /// the same protocol context.
+    ///
+    /// # Safety
+    /// - The new TVB must be valid and created through proper Wireshark APIs
+    /// - The TVB must have a lifetime that matches or exceeds the original tree
+    /// - This should typically only be used with TVBs created via new_child_real_data
+    ///   or new_subset_remaining
+    ///
+    /// This is commonly used when switching to a new data buffer after transformation
+    /// operations like decryption, decompression etc.
     pub unsafe fn with_tvb(&self, tvb: Tvb) -> Self {
         Self {
             protocol: self.protocol,
