@@ -4,6 +4,12 @@
 [![CI](https://github.com/ghpr-asia/wsdf/actions/workflows/ci.yml/badge.svg)](https://github.com/ghpr-asia/wsdf/actions/workflows/ci.yml)
 -->
 
+
+> [!WARNING]
+> All future work has been moved to https://github.com/amitrahman1026/wsdf.
+> The project has significantly diverged in vision and architecture from the
+> original fork.
+
 **wsdf** (**W**ire**s**hark **D**issector **F**ramework) framework to generate
 Wireshark dissectors plugin generator from your Rust data types.
 
